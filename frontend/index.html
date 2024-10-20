@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Chat</title>
+    <style>
+        body {
+            margin: 0;
+            padding-bottom: 3rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #form {
+            background: rgba(0, 0, 0, 0.15);
+            padding: 0.25rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            height: 3rem;
+            box-sizing: border-box;
+            backdrop-filter: blur(10px);
+        }
+
+        #input,
+        #userID {
+            border: none;
+            padding: 0 1rem;
+            flex-grow: 1;
+            border-radius: 2rem;
+            margin: 0.25rem;
+        }
+
+        #form button,
+        #register button,
+        #login button {
+            background: #333;
+            border: none;
+            padding: 0 1rem;
+            margin: 0.25rem;
+            border-radius: 3px;
+            color: #fff;
+        }
+
+        #messages {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #users {
+            margin: 1rem 0;
+            padding: 0;
+        }
+
+        #users>ol {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #users>ol>li {
+            padding: 0.5rem;
+            background-color: #f4f4f4;
+        }
+
+        #register,
+        #login {
+            margin-top: 2rem;
+        }
+
+        #register input,
+        #login input {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <ul id="messages"></ul>
+    <div id="users"></div>
+
+    <form id="form">
+        <input id="input" autocomplete="off" placeholder="Message" />
+        <input id="userID" autocomplete="off" placeholder="Recipient userID" />
+        <button type="submit">Send</button>
+    </form>
+
+    <form id="register">
+        <h3>Register</h3>
+        <input id="register-login" autocomplete="off" placeholder="Login" type="text" />
+        <input id="register-password" autocomplete="off" placeholder="Password" type="password" />
+        <button type="submit">Register</button>
+    </form>
+
+    <form id="login">
+        <h3>Login</h3>
+        <input id="login-input" autocomplete="off" placeholder="Login" type="text" />
+        <input id="password-input" autocomplete="off" placeholder="Password" type="password" />
+        <button type="submit">Login</button>
+    </form>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script>
+        const socket = io("http://localhost:3000");
+
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const userID = document.getElementById('userID');
+        const messages = document.getElementById('messages');
+        const users = document.getElementById('users');
+        const registerForm = document.getElementById('register');
+        const loginForm = document.getElementById('login');
+        const loginInput = document.getElementById('login-input');
+        const passwordInput = document.getElementById('password-input');
+
+
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const login = document.getElementById('register-login').value;
+            const password = document.getElementById('register-password').value;
+
+            fetch('http://localhost:3000/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ login, password }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message); 
+                    if (data.user) {
+                        
+                        loginInput.value = login;
+                        passwordInput.value = password;
+                        loginForm.dispatchEvent(new Event('submit'));
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        });
+
+        
+        loginForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            if (loginInput.value && passwordInput.value) {
+                socket.emit('login', { login: loginInput.value, password: passwordInput.value });
+                loginInput.value = '';
+                passwordInput.value = '';
+            }
+        });
+
+        
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (input.value && userID.value) {
+                socket.emit('send-message', { message: input.value, userID: userID.value });
+                input.value = '';
+                userID.value = '';
+            }
+        });
+
+        socket.on("new-message", (data) => {
+            const item = document.createElement('li');
+            item.textContent = `${data.from}: ${data.message}`; 
+            messages.appendChild(item);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        socket.on("online-users", ({ onlineUsers }) => {
+            users.innerHTML = "";
+            const usersOl = document.createElement('ol');
+            for (let i = 0; i < onlineUsers.length; i++) {
+                const user = onlineUsers[i];
+                const item = document.createElement('li');
+                item.textContent = `id: ${user.id}, login: ${user.login}`;
+                usersOl.appendChild(item);
+            }
+            users.appendChild(usersOl);
+        });
+
+        
+        socket.on("login-error", ({ message }) => {
+            alert(message);
+        });
+    </script>
+</body>
+
+</html>
